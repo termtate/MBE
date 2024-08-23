@@ -5,6 +5,7 @@ import sqlite3
 import pickle
 
 app = Flask(__name__, static_folder='static')
+
 app.config['JWT_SECRET_KEY'] = 'stevebrokeadirtblock'
 jwt = JWTManager(app)
 
@@ -32,6 +33,11 @@ def get_user(username):
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/<path:path>')
+def static_proxy(path):
+    return send_from_directory(app.static_folder, path)
+
 
 @app.route('/register', methods=['POST'])
 def register():
