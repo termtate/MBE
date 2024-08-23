@@ -30,23 +30,28 @@ def get_user(username):
 
 @app.route('/register', methods=['POST'])
 def register():
-    username = request.json.get('username', None)
-    password = request.json.get('password', None)
+    username = request.json.get('username')
+    password = request.json.get('password')
+    
     if get_user(username):
         return jsonify({"msg": "User already exists"}), 400
+
     create_user(username, password)
     return jsonify({"msg": "User created"}), 201
 
+
 @app.route('/login', methods=['POST'])
 def login():
-    username = request.json.get('username', None)
-    password = request.json.get('password', None)
+    username = request.json.get('username')
+    password = request.json.get('password')
     user = get_user(username)
+    
     if user and user['password'] == password:
         access_token = create_access_token(identity=username)
         return jsonify(access_token=access_token)
     else:
         return jsonify({"msg": "Bad username or password"}), 401
+
 
 @app.route('/protected', methods=['GET'])
 @jwt_required()
@@ -93,6 +98,41 @@ def get_items():
         items.append(item)
     
     return jsonify(items), 200
+
+@app.route('/items/<int:item_id>', methods=['PUT'])
+@jwt_required()
+def update_item(item_id):
+    data = request.json
+    text = data.get('text')
+    embedding = data.get('embedding')
+    vector = data.get('vector')
+
+    # 序列化 embedding 和 vector
+    embedding_blob = pickle.dumps(embedding)
+    vector_blob = pickle.dumps(vector)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('UPDATE items SET text = ?, embedding = ?, vector = ? WHERE id = ?',
+                   (text, embedding_blob, vector_blob, item_id))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"msg": "Item updated"}), 200
+
+@app.route('/items/<int:item_id>', methods=['DELETE'])
+@jwt_required()
+def delete_item(item_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM items WHERE id = ?', (item_id,))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"msg": "Item deleted"}), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True)

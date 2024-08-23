@@ -1,10 +1,10 @@
 <template>
     <div>
-      <h2>Register</h2>
-      <form @submit.prevent="register">
+      <h2>Login</h2>
+      <form @submit.prevent="login">
         <input v-model="username" placeholder="Username" />
         <input v-model="password" type="password" placeholder="Password" />
-        <button type="submit">Register</button>
+        <button type="submit">Login</button>
       </form>
     </div>
   </template>
@@ -20,16 +20,17 @@
       };
     },
     methods: {
-      async register() {
+      async login() {
         try {
-          await axios.post('http://127.0.0.1:5000/register', {
+          const response = await axios.post('http://127.0.0.1:5000/login', {
             username: this.username,
             password: this.password
           });
-          alert('Registration successful!');
+          localStorage.setItem('token', response.data.access_token);
+          alert('Login successful!');
         } catch (error) {
-          console.error('Registration error:', error);
-          alert('Registration failed.');
+          console.error('Login error:', error);
+          alert('Login failed.');
         }
       }
     }
