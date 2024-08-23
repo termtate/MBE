@@ -1,9 +1,10 @@
 from flask import Flask, request, jsonify
+from flask import Flask, send_from_directory
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import sqlite3
 import pickle
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 app.config['JWT_SECRET_KEY'] = 'stevebrokeadirtblock'
 jwt = JWTManager(app)
 
@@ -27,6 +28,10 @@ def get_user(username):
     user = cursor.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
     conn.close()
     return user
+
+@app.route('/')
+def index():
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/register', methods=['POST'])
 def register():
