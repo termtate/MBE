@@ -8,12 +8,20 @@ import UserRegister from './components/UserRegister.vue';
 import UserLogin from './components/UserLogin.vue';
 import UserProtected from './components/UserProtected.vue';
 import UserManagement from './components/UserManagement.vue';
+import ChatWindow from './components/ChatWindow.vue'; // 新增聊天页面组件
+import DataManagement from './components/DataManagement.vue'; 
 
 function requireAuth(to, from, next) {
-  if (!localStorage.getItem('token')) {
+  const token = localStorage.getItem('token');
+  if (!token) {
     next('/login');
   } else {
-    next();
+    const user = JSON.parse(atob(token.split('.')[1]));
+    if (to.meta.requiresAdmin && user.sub.role !== 'admin') {
+      next('/chat'); // 如果不是管理员，重定向到聊天页面
+    } else {
+      next();
+    }
   }
 }
 
@@ -28,7 +36,9 @@ const router = createRouter({
     { path: '/get-items', component: GetItems, beforeEnter: requireAuth },
     { path: '/update-item', component: UpdateItem, beforeEnter: requireAuth },
     { path: '/delete-item', component: DeleteItem, beforeEnter: requireAuth },
-    { path: '/user-management', component: UserManagement, beforeEnter: requireAuth }
+    { path: '/user-management', component: UserManagement, beforeEnter: requireAuth, meta: { requiresAdmin: true } },
+    { path: '/data-management', component: DataManagement, beforeEnter: requireAuth, meta: { requiresAdmin: true } }, 
+    { path: '/chat', component: ChatWindow, beforeEnter: requireAuth } // 聊天页面
   ]
 });
 
