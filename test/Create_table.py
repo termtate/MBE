@@ -42,9 +42,21 @@ def create_tables():
         );
         '''
 
+        # 创建 history表的 SQL 语句
+        create_history_table_query = '''
+        CREATE TABLE IF NOT EXISTS history (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            message TEXT NOT NULL,
+            response TEXT,
+            timestamp TIMESTAMPTZ DEFAULT NOW()
+        );
+        '''
+
         # 执行创建表的 SQL 语句
         cursor.execute(create_users_table_query)
         cursor.execute(create_knowledge_base_table_query)
+        cursor.execute(create_history_table_query)
 
         # 提交事务
         conn.commit()
