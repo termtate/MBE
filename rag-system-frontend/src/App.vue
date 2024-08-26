@@ -7,6 +7,7 @@
         <li><router-link to="/get-items">Get Items</router-link></li>
         <li><router-link to="/update-item">Update Item</router-link></li>
         <li><router-link to="/delete-item">Delete Item</router-link></li>
+        <li><router-link to="/user-management">User Manegement</router-link></li>
         <li><a href="#" @click="logout">Logout</a></li>
       </ul>
     </nav>

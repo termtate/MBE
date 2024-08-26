@@ -7,6 +7,7 @@ import DeleteItem from './components/DeleteItem.vue';
 import UserRegister from './components/UserRegister.vue';
 import UserLogin from './components/UserLogin.vue';
 import UserProtected from './components/UserProtected.vue';
+import UserManagement from './components/UserManagement.vue';
 
 function requireAuth(to, from, next) {
   if (!localStorage.getItem('token')) {
@@ -26,7 +27,8 @@ const router = createRouter({
     { path: '/add-item', component: AddItem, beforeEnter: requireAuth },
     { path: '/get-items', component: GetItems, beforeEnter: requireAuth },
     { path: '/update-item', component: UpdateItem, beforeEnter: requireAuth },
-    { path: '/delete-item', component: DeleteItem, beforeEnter: requireAuth }
+    { path: '/delete-item', component: DeleteItem, beforeEnter: requireAuth },
+    { path: '/user-management', component: UserManagement, beforeEnter: requireAuth }
   ]
 });
 
