@@ -1,24 +1,35 @@
-from flask import Flask, request, jsonify, send_from_directory
+import requests
+from flask import Flask, request, jsonify, send_from_directory,Response
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import pickle
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from datetime import datetime
 
 app = Flask(__name__, static_folder='static')
 
 app.config['JWT_SECRET_KEY'] = 'stevebrokeadirtblock'
 jwt = JWTManager(app)
 
+#模型api设置
+OLLAMA_HOST = "http://localhost:11434"
+LLM_MODEL = "lgkt/llama3-chinese-alpaca:latest"
+
 # 数据库连接
 def get_db_connection():
-    conn = psycopg2.connect(
-        host="localhost",            # PostgreSQL 服务器的主机名
-        database="mbe_db",           # 你的数据库名称
-        user="postgres",             # PostgreSQL 用户名
-        password="12345",            # PostgreSQL 密码
-        cursor_factory=RealDictCursor # 返回字典格式的游标，类似于 SQLite 的 row_factory
-    )
-    return conn
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="mbe_db",
+            user="postgres",
+            password="12345",
+            cursor_factory=RealDictCursor
+        )
+        return conn
+    except Exception as e:
+        print(f"数据库连接失败: {e}")
+        return None
+
 
 # 获取所有用户
 @app.route('/users', methods=['GET'])
@@ -120,11 +131,34 @@ def register():
     username = request.json.get('username')
     password = request.json.get('password')
     
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # 检查是否已经存在用户
+    cursor.execute('SELECT COUNT(*) FROM users')
+    result = cursor.fetchone()
+
+    # 处理不同类型的返回值
+    if isinstance(result, dict):
+        user_count = result.get('count', 0)  # 如果是字典，获取 'count' 键
+    elif isinstance(result, tuple):
+        user_count = result[0]  # 如果是元组，获取第一个元素
+    else:
+        user_count = 0  # 默认值
+
+    # 如果没有用户，则第一个用户为管理员
+    role = 'admin' if user_count == 0 else 'user'
+    
     if get_user(username):
         return jsonify({"msg": "User already exists"}), 400
 
-    create_user(username, password)
-    return jsonify({"msg": "User created"}), 201
+    create_user(username, password, role)
+    conn.commit()
+    cursor.close()
+    conn.close()
+    
+    return jsonify({"msg": "User created", "role": role}), 201
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -133,11 +167,12 @@ def login():
     user = get_user(username)
     
     if user and user['password'] == password:
-        # 将角色包含在 JWT 中
-        access_token = create_access_token(identity={"username": username, "role": user["role"]})
+        # 确保在 JWT 中包含用户的 id
+        access_token = create_access_token(identity={"username": username, "role": user["role"], "id": user["id"]})
         return jsonify(access_token=access_token)
     else:
         return jsonify({"msg": "Bad username or password"}), 401
+
 
 @app.route('/protected', methods=['GET'])
 @jwt_required()
@@ -224,6 +259,64 @@ def delete_item(item_id):
     conn.close()
     
     return jsonify({"msg": "Item deleted"}), 200
+
+# 获取模型响应（非流式）
+def get_model_response(user_message: str, stream: bool = False):
+    try:
+        response = requests.post(
+            url=f"{OLLAMA_HOST}/v1/chat/completions",
+            json={"model": LLM_MODEL, "messages": [{"role": "user", "content": user_message}], "stream": stream},
+            stream=stream
+        )
+        response.raise_for_status()
+        
+        if stream:
+            return response.iter_lines()
+        else:
+            return response.json()
+    except Exception as e:
+        return f"Error: {e}"
+
+# 流式传输的聊天接口
+@app.route('/stream-chat', methods=['POST'])
+@jwt_required()
+def stream_chat():
+    user_message = request.json.get('message')
+    current_user = get_jwt_identity()
+
+    # 使用流式传输获取模型响应
+    def generate_response():
+        for line in get_model_response(user_message, stream=True):
+            if line:
+                yield f"data: {line.decode('utf-8')}\n\n"
+
+    return Response(generate_response(), content_type='text/event-stream')
+
+# 非流式传输的聊天接口
+@app.route('/chat', methods=['POST'])
+@jwt_required()
+def chat():
+    user_message = request.json.get('message')
+    current_user = get_jwt_identity()
+
+    if 'id' not in current_user:
+        return jsonify({"msg": "User ID not found"}), 400
+   
+    # 获取模型的完整响应
+    model_response = get_model_response(user_message, stream=False)
+
+    # 存储聊天记录
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        'INSERT INTO history (user_id, message, response, timestamp) VALUES (%s, %s, %s, NOW())',
+        (current_user["id"], user_message, model_response["choices"][0]["message"]["content"])
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return jsonify(model_response)
 
 if __name__ == '__main__':
     app.run(debug=True)
