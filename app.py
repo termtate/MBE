@@ -1,5 +1,4 @@
-from flask import Flask, request, jsonify
-from flask import Flask, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import sqlite3
 import pickle
@@ -35,9 +34,12 @@ def index():
     return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/<path:path>')
-def static_proxy(path):
-    return send_from_directory(app.static_folder, path)
-
+def catch_all(path):
+    # 如果请求的是静态文件（如 JS、CSS），直接提供这些文件
+    if path.startswith('js') or path.startswith('css') or path.startswith('img') or path.startswith('favicon.ico'):
+        return send_from_directory(app.static_folder, path)
+    # 其他路径交给 Vue.js 处理
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -50,7 +52,6 @@ def register():
     create_user(username, password)
     return jsonify({"msg": "User created"}), 201
 
-
 @app.route('/login', methods=['POST'])
 def login():
     username = request.json.get('username')
@@ -62,7 +63,6 @@ def login():
         return jsonify(access_token=access_token)
     else:
         return jsonify({"msg": "Bad username or password"}), 401
-
 
 @app.route('/protected', methods=['GET'])
 @jwt_required()
@@ -143,7 +143,6 @@ def delete_item(item_id):
     conn.close()
     
     return jsonify({"msg": "Item deleted"}), 200
-
 
 if __name__ == '__main__':
     app.run(debug=True)
