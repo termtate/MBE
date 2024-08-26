@@ -181,84 +181,93 @@ def protected():
     return jsonify(logged_in_as=current_user), 200
 
 # 数据管理功能仅限管理员使用
-@app.route('/items', methods=['POST'])
+@app.route('/knowledge_base', methods=['POST'])
 @admin_required
-def add_item():
-    text = request.json.get('text')
+def add_knowledge_base_entry():
+    data = request.json.get('data')
     embedding = request.json.get('embedding')
-    vector = request.json.get('vector')
-    
-    # 序列化 embedding 和 vector
+
+    # 序列化 embedding
     embedding_blob = pickle.dumps(embedding)
-    vector_blob = pickle.dumps(vector)
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO items (text, embedding, vector) VALUES (%s, %s, %s)',
-                   (text, embedding_blob, vector_blob))
+    cursor.execute(
+        'INSERT INTO knowledge_base (data, embedding, created_at) VALUES (%s, %s, NOW())',
+        (data, embedding_blob)
+    )
     conn.commit()
     cursor.close()
     conn.close()
-    
-    return jsonify({"msg": "Item added"}), 201
 
-@app.route('/items', methods=['GET'])
+    return jsonify({"msg": "Entry added to knowledge_base"}), 201
+
+@app.route('/knowledge_base', methods=['GET'])
 @jwt_required()
-def get_items():
+def get_knowledge_base_entries():
+    search_keyword = request.args.get('keyword', '')
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM items')
+
+    if search_keyword:
+        cursor.execute(
+            "SELECT id, data, embedding, created_at FROM knowledge_base WHERE data ILIKE %s",
+            ('%' + search_keyword + '%',)
+        )
+    else:
+        cursor.execute("SELECT id, data, embedding, created_at FROM knowledge_base")
+
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
 
-    items = []
+    entries = []
     for row in rows:
-        item = {
+        entry = {
             "id": row["id"],
-            "text": row["text"],
-            "embedding": pickle.loads(row["embedding"]),
-            "vector": pickle.loads(row["vector"])
+            "data": row["data"],
+            "embedding": pickle.loads(row["embedding"]) if row["embedding"] else None,
+            "created_at": row["created_at"]
         }
-        items.append(item)
-    
-    return jsonify(items), 200
+        entries.append(entry)
 
-@app.route('/items/<int:item_id>', methods=['PUT'])
+    return jsonify(entries), 200
+
+
+@app.route('/knowledge_base/<int:entry_id>', methods=['PUT'])
 @admin_required
-def update_item(item_id):
-    data = request.json
-    text = data.get('text')
-    embedding = data.get('embedding')
-    vector = data.get('vector')
+def update_knowledge_base_entry(entry_id):
+    data = request.json.get('data')
+    embedding = request.json.get('embedding')
 
-    # 序列化 embedding 和 vector
+    # 序列化 embedding
     embedding_blob = pickle.dumps(embedding)
-    vector_blob = pickle.dumps(vector)
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    cursor.execute('UPDATE items SET text = %s, embedding = %s, vector = %s WHERE id = %s',
-                   (text, embedding_blob, vector_blob, item_id))
+    cursor.execute(
+        'UPDATE knowledge_base SET data = %s, embedding = %s WHERE id = %s',
+        (data, embedding_blob, entry_id)
+    )
     conn.commit()
     cursor.close()
     conn.close()
-    
-    return jsonify({"msg": "Item updated"}), 200
 
-@app.route('/items/<int:item_id>', methods=['DELETE'])
+    return jsonify({"msg": "Entry updated"}), 200
+
+@app.route('/knowledge_base/<int:entry_id>', methods=['DELETE'])
 @admin_required
-def delete_item(item_id):
+def delete_knowledge_base_entry(entry_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    cursor.execute('DELETE FROM items WHERE id = %s', (item_id,))
+    cursor.execute('DELETE FROM knowledge_base WHERE id = %s', (entry_id,))
     conn.commit()
     cursor.close()
     conn.close()
-    
-    return jsonify({"msg": "Item deleted"}), 200
+
+    return jsonify({"msg": "Entry deleted"}), 200
+
 
 # 获取模型响应（非流式）
 def get_model_response(user_message: str, stream: bool = False):
