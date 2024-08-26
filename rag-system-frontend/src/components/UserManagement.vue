@@ -34,14 +34,20 @@
       };
     },
     methods: {
-      async fetchUsers() {
-        const response = await fetch('/users', {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        this.users = await response.json();
+        async fetchUsers() {
+            try {
+                const response = await fetch('/users', {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token')}`
+                }
+                });
+                const data = await response.json();
+                console.log(data); // 打印数据到控制台
+                this.users = data;
+            } catch (error) {
+                console.error('Error fetching users:', error);
+            }
       },
       async changeRole(userId) {
         const newRole = prompt("Enter new role (user/admin):");
