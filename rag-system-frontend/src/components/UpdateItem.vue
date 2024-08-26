@@ -1,48 +1,48 @@
 <template>
   <div>
-    <h2>Update Item</h2>
-    <form @submit.prevent="updateItem">
-      <input v-model="id" placeholder="Item ID" />
-      <input v-model="text" placeholder="Text" />
-      <input v-model="embedding" placeholder="Embedding (comma separated)" />
-      <input v-model="vector" placeholder="Vector (comma separated)" />
-      <button type="submit">Update Item</button>
-    </form>
+    <h2>Update Knowledge Base Entry</h2>
+    <input v-model="id" placeholder="Enter ID..." />
+    <input v-model="data" placeholder="Enter new data..." />
+    <textarea v-model="embedding" placeholder="Enter new embedding (comma separated)..."></textarea>
+    <button @click="updateItem">Update Entry</button>
   </div>
 </template>
-  
+
 <script>
-  import axios from 'axios';
-  
-  export default {
-    data() {
-      return {
-        id: '',
-        text: '',
-        embedding: '',
-        vector: ''
-      };
-    },
-    methods: {
-      async updateItem() {
-        try {
-          const token = localStorage.getItem('token');
-          await axios.put(`http://127.0.0.1:5000/items/${this.id}`, {
-            text: this.text,
-            embedding: this.embedding.split(',').map(Number),
-            vector: this.vector.split(',').map(Number)
-          }, {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
-          alert('Item updated!');
-        } catch (error) {
-          console.error('Error updating item:', error);
-          alert('Failed to update item.');
+export default {
+  data() {
+    return {
+      id: '',
+      data: '',
+      embedding: ''
+    };
+  },
+  methods: {
+    async updateItem() {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/knowledge_base/${this.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            data: this.data,
+            embedding: this.embedding.split(',').map(Number) // 转换为数组
+          })
+        });
+
+        if (!response.ok) {
+          console.error("Failed to update item:", response.statusText);
+          return;
         }
+
+        alert("Entry updated successfully!");
+      } catch (error) {
+        console.error("Error updating item:", error);
       }
     }
-  };
+  }
+};
 </script>
-  

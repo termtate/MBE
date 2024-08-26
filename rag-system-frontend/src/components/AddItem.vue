@@ -1,43 +1,45 @@
 <template>
     <div>
-      <h2>Add Item</h2>
-      <form @submit.prevent="addItem">
-        <input v-model="text" placeholder="Text" />
-        <input v-model="embedding" placeholder="Embedding (comma separated)" />
-        <input v-model="vector" placeholder="Vector (comma separated)" />
-        <button type="submit">Add Item</button>
-      </form>
+      <h2>Add Knowledge Base Entry</h2>
+      <textarea v-model="data" placeholder="Enter data..."></textarea>
+      <input v-model="embedding" placeholder="Enter embedding (optional, comma separated)"/>
+      <button @click="addItem">Add Item</button>
     </div>
   </template>
   
   <script>
-  import axios from 'axios';
-  
   export default {
     data() {
       return {
-        text: '',
-        embedding: '',
-        vector: ''
+        data: '',  // 知识库的数据
+        embedding: ''  // 可选的嵌入向量
       };
     },
     methods: {
       async addItem() {
         try {
           const token = localStorage.getItem('token');
-          await axios.post('http://127.0.0.1:5000/items', {
-            text: this.text,
-            embedding: this.embedding.split(',').map(Number),
-            vector: this.vector.split(',').map(Number)
-          }, {
+          const response = await fetch('/knowledge_base', {
+            method: 'POST',
             headers: {
+              'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`
-            }
+            },
+            body: JSON.stringify({
+              data: this.data,
+              embedding: this.embedding ? this.embedding.split(',').map(Number) : null
+            })
           });
-          alert('Item added!');
+  
+          if (response.ok) {
+            alert('Item added successfully!');
+            this.data = '';
+            this.embedding = '';
+          } else {
+            alert('Failed to add item');
+          }
         } catch (error) {
           console.error('Error adding item:', error);
-          alert('Failed to add item.');
         }
       }
     }

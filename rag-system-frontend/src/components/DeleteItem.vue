@@ -1,16 +1,12 @@
 <template>
     <div>
-      <h2>Delete Item</h2>
-      <form @submit.prevent="deleteItem">
-        <input v-model="id" placeholder="Item ID" />
-        <button type="submit">Delete Item</button>
-      </form>
+      <h2>Delete Knowledge Base Entry</h2>
+      <input v-model="id" placeholder="Enter ID..." />
+      <button @click="deleteItem">Delete Entry</button>
     </div>
   </template>
   
   <script>
-  import axios from 'axios';
-  
   export default {
     data() {
       return {
@@ -21,15 +17,21 @@
       async deleteItem() {
         try {
           const token = localStorage.getItem('token');
-          await axios.delete(`http://127.0.0.1:5000/items/${this.id}`, {
+          const response = await fetch(`/knowledge_base/${this.id}`, {
+            method: 'DELETE',
             headers: {
               Authorization: `Bearer ${token}`
             }
           });
-          alert('Item deleted!');
+  
+          if (!response.ok) {
+            console.error("Failed to delete item:", response.statusText);
+            return;
+          }
+  
+          alert("Entry deleted successfully!");
         } catch (error) {
-          console.error('Error deleting item:', error);
-          alert('Failed to delete item.');
+          console.error("Error deleting item:", error);
         }
       }
     }
