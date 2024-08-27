@@ -269,16 +269,39 @@ def delete_knowledge_base_entry(entry_id):
     return jsonify({"msg": "Entry deleted"}), 200
 
 
-# 获取模型响应（非流式）
+# 检索相关上下文
+def retrieve_relevant_information(user_message):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # 假设使用 SQL 进行简单的文本匹配查询
+    cursor.execute("SELECT data FROM knowledge_base WHERE data ILIKE %s LIMIT 5", ('%' + user_message + '%',))
+    rows = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
+
+    # 提取数据作为上下文
+    contexts = [row['data'] for row in rows]
+    return contexts
+
+# 获取模型响应，并将上下文拼接到用户输入后发送给模型
 def get_model_response(user_message: str, stream: bool = False):
     try:
+        # 检索相关上下文
+        contexts = retrieve_relevant_information(user_message)
+        
+        # 将上下文与用户输入拼接，作为提示词
+        combined_message = user_message + "\n\n" + "\n".join(contexts)
+        
+        # 发送到模型
         response = requests.post(
             url=f"{OLLAMA_HOST}/v1/chat/completions",
-            json={"model": LLM_MODEL, "messages": [{"role": "user", "content": user_message}], "stream": stream},
+            json={"model": LLM_MODEL, "messages": [{"role": "user", "content": combined_message}], "stream": stream},
             stream=stream
         )
         response.raise_for_status()
-        
+
         if stream:
             return response.iter_lines()
         else:
