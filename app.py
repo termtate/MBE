@@ -5,6 +5,7 @@ import pickle
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
+from flask_cors import CORS
 
 app = Flask(__name__, static_folder='static')
 
@@ -14,6 +15,7 @@ jwt = JWTManager(app)
 #模型api设置
 OLLAMA_HOST = "http://localhost:11434"
 LLM_MODEL = "lgkt/llama3-chinese-alpaca:latest"
+PROMPT= "后方的内容是你学习到的知识，请基于这些信息回答用户问题"
 
 # 数据库连接
 def get_db_connection():
@@ -277,6 +279,7 @@ def retrieve_relevant_information(user_message):
     # 假设使用 SQL 进行简单的文本匹配查询
     cursor.execute("SELECT data FROM knowledge_base WHERE data ILIKE %s LIMIT 5", ('%' + user_message + '%',))
     rows = cursor.fetchall()
+    print("Retrieved rows:", rows)
     
     cursor.close()
     conn.close()
@@ -292,8 +295,8 @@ def get_model_response(user_message: str, stream: bool = False):
         contexts = retrieve_relevant_information(user_message)
         
         # 将上下文与用户输入拼接，作为提示词
-        combined_message = user_message + "\n\n" + "\n".join(contexts)
-        
+        combined_message = "你需要根据你学习到的内容回答的问题：" "\n" + user_message + "\n\n" + "后方的内容是你学习到的知识，请基于这些信息回答用户问题:" + "\n".join(contexts)
+        print("Combined Message: ", combined_message)
         # 发送到模型
         response = requests.post(
             url=f"{OLLAMA_HOST}/v1/chat/completions",
@@ -352,3 +355,4 @@ def chat():
 
 if __name__ == '__main__':
     app.run(debug=True)
+    CORS(app)
