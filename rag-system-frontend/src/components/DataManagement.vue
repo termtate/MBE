@@ -16,3 +16,24 @@
   };
   </script>
   
+  <style scoped>
+  ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  li {
+    margin-bottom: 10px;
+  }
+  
+  a {
+    text-decoration: none;
+    color: #007bff;
+    font-weight: bold;
+  }
+  
+  a:hover {
+    color: #0056b3;
+  }
+  </style>
+  
