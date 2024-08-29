@@ -1,4 +1,7 @@
 import { createApp } from 'vue'; // 从 'vue' 模块中导入 createApp
 import App from './components/UserManagement.vue'; // 确保路径正确
-
-createApp(App).mount('#app');
+import ElementPlus from 'element-plus';
+import 'element-plus/dist/index.css';
+const app = createApp(App);
+app.use(ElementPlus);
+app.mount('#app');

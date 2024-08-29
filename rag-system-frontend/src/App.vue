@@ -126,7 +126,7 @@ nav {
   left: 20px;
   transform: translateY(-50%);
   opacity: 0;
-  transition: opacity 0.5s ease;
+  transition: opacity 0.5s ease, transform 0.5s ease;
   z-index: 1000;
   pointer-events: none; /* 默认情况下，导航栏不接受鼠标事件 */
 }
@@ -134,6 +134,7 @@ nav {
 /* 当导航栏可见时，设置透明度为1，并允许鼠标交互 */
 nav.visible {
   opacity: 1;
+  transform: translateY(-50%) translateX(0); /* 添加位移效果 */
   pointer-events: auto; /* 导航栏可见时允许鼠标事件 */
 }
 
@@ -146,9 +147,16 @@ nav ul {
   gap: 20px; /* 设置按钮之间的间距 */
 }
 
+/* 添加按钮悬停和动画效果 */
 nav ul li {
   display: block;
   cursor: pointer;
+  transform: scale(1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease; /* 添加缩放和阴影效果的过渡 */
+}
+
+nav ul li:hover {
+  transform: scale(1.05); /* 鼠标悬停时，稍微放大 */
 }
 
 nav ul li a {
@@ -158,14 +166,22 @@ nav ul li a {
   color: white;
   text-decoration: none;
   border-radius: 20px;
-  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.2);
   font-size: 18px;
   text-align: center;
   width: 150px; /* 设置按钮的固定宽度 */
   box-shadow: -10px 8px 30px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease; /* 添加背景色和阴影的过渡 */
 }
 
+/* 添加按钮的悬停效果 */
 nav ul li a:hover {
   background-color: #555555;
+  box-shadow: -10px 12px 40px rgba(0, 0, 0, 0.4); /* 悬停时增加阴影效果 */
+}
+
+/* 按钮点击效果 */
+nav ul li a:active {
+  transform: scale(0.95); /* 按下时缩小 */
+  box-shadow: -10px 6px 20px rgba(0, 0, 0, 0.2); /* 按下时减小阴影 */
 }
 </style>
