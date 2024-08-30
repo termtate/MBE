@@ -1,68 +1,138 @@
 <template>
-    <div class="chat-history">
-      <h3>Chat History</h3>
-      <ul>
-        <li v-for="(history, index) in chatHistories" :key="index">
-          <button @click="loadHistory(history.id)">
-            Chat {{ index + 1 }} - {{ history.timestamp }}
-          </button>
-        </li>
-      </ul>
-    </div>
-  </template>
-  
-  <script>
-  import axios from 'axios';
-  
-  export default {
-    data() {
-      return {
-        chatHistories: []
-      };
+  <div class="chat-history">
+    <h3>Chat History</h3>
+
+    <el-scrollbar class="history-list" v-if="chatHistories.length">
+      <el-menu :default-active="activeIndex" class="el-menu-vertical-demo">
+        <transition-group name="fade">
+          <el-menu-item
+            v-for="(history, index) in chatHistories"
+            :key="history.id"
+            @click="loadHistory(history.id)"
+            :class="{ active: history.id === activeIndex }"
+          >
+            <span>Chat {{ index + 1 }} - {{ history.timestamp }}</span>
+            <el-button 
+              type="text" 
+              icon="el-icon-delete" 
+              @click.stop="deleteSingle(history.id)"
+              style="float: right; margin-right: 10px;"
+            ></el-button>
+          </el-menu-item>
+        </transition-group>
+      </el-menu>
+    </el-scrollbar>
+    
+    <!-- No Chat History Message -->
+    <el-empty v-else description="No Chat History" />
+
+    <el-checkbox-group v-model="selectedIds" class="checkbox-group" v-if="chatHistories.length">
+      <el-checkbox
+        v-for="history in chatHistories"
+        :key="history.id"
+        :label="history.id"
+      >
+        Select Chat {{ history.timestamp }}
+      </el-checkbox>
+    </el-checkbox-group>
+
+    <el-button 
+      type="danger" 
+      icon="el-icon-delete" 
+      @click="deleteSelectedChats"
+      :disabled="!selectedIds.length"
+      class="delete-selected-button"
+      v-if="chatHistories.length"
+    >
+      Delete Selected
+    </el-button>
+
+    <el-button 
+      type="primary" 
+      @click="newChat"
+      class="new-chat-button"
+      icon="el-icon-plus"
+    >
+      New Chat
+    </el-button>
+  </div>
+</template>
+
+<script>
+import { ElMessage } from 'element-plus';
+
+export default {
+  props: {
+    chatHistories: Array,
+  },
+  data() {
+    return {
+      activeIndex: null, // 当前激活的聊天记录ID
+      selectedIds: [], // 存储被选中的历史记录ID
+    };
+  },
+  methods: {
+    loadHistory(historyId) {
+      this.activeIndex = historyId; // 更新当前激活的聊天记录ID
+      this.$emit('load-history', historyId); // 触发加载历史记录的事件
     },
-    created() {
-      this.fetchChatHistories();
+    newChat() {
+      this.activeIndex = null; // 清除激活的历史记录ID
+      this.$emit('new-chat'); // 触发新建聊天的事件
     },
-    methods: {
-      async fetchChatHistories() {
-        try {
-          const response = await axios.get('/chat-history');
-          this.chatHistories = response.data;
-        } catch (error) {
-          console.error('Error fetching chat histories:', error);
-        }
-      },
-      loadHistory(historyId) {
-        this.$emit('load-history', historyId);
+    deleteSingle(chatId) {
+      this.$emit('delete-chat', chatId); // 触发单个删除的事件
+      if (this.activeIndex === chatId) {
+        this.activeIndex = null; // 如果删除的是当前激活的记录，清除激活状态
       }
-    }
-  };
-  </script>
-  
-  <style scoped>
-  .chat-history {
-    padding: 20px;
-    border-right: 1px solid #ddd;
-    height: 100%;
-  }
-  
-  ul {
-    list-style-type: none;
-    padding: 0;
-  }
-  
-  button {
-    padding: 10px;
-    margin-bottom: 10px;
-    width: 100%;
-    text-align: left;
-    border: none;
-    background-color: #f1f1f1;
-    cursor: pointer;
-  }
-  
-  button:hover {
-    background-color: #ddd;
-  }
-  </style>
-  
+      ElMessage.success('Chat deleted successfully');
+    },
+    deleteSelectedChats() {
+      this.$emit('delete-selected', this.selectedIds); // 触发批量删除的事件
+      this.selectedIds = []; // 清空选择的ID列表
+      ElMessage.success('Selected chats deleted successfully');
+    },
+  },
+};
+</script>
+
+<style scoped>
+.chat-history {
+  padding: 20px;
+  background-color: #444444;
+  border-bottom: 1px solid #ddd;
+  height: 100%;
+  color:white;
+}
+
+.history-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.el-menu-vertical-demo {
+  background-color: transparent;
+  border-right: none;
+}
+
+.el-menu-item.active {
+  background-color: #e0f7fa; /* 激活项的背景颜色 */
+}
+
+.new-chat-button,
+.delete-selected-button {
+  margin-top: 15px;
+  width: 100%;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s;
+}
+
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

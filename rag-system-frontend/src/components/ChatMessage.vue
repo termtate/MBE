@@ -1,42 +1,76 @@
 <template>
-    <div :class="messageClass">
+  <transition :name="transitionName">
+    <el-card :class="messageClass" v-if="message">
       <div class="message-content">{{ message.content }}</div>
-    </div>
-  </template>
-  
-  <script>
-  export default {
-    props: ['message'],
-    computed: {
-      messageClass() {
-        return this.message.role === 'user' ? 'message user-message' : 'message model-message';
-      }
+    </el-card>
+  </transition>
+</template>
+
+<script>
+export default {
+  props: {
+    message: {
+      type: Object,
+      required: true
     }
-  };
-  </script>
-  
-  <style scoped>
-  .message {
-    margin: 10px 0;
-    padding: 10px;
-    border-radius: 10px;
-    max-width: 70%;
+  },
+  computed: {
+    messageClass() {
+      return this.message.role === 'user' ? 'user-message' : 'model-message';
+    },
+    transitionName() {
+      return this.message.role === 'user' ? 'slide-up-right' : 'slide-up-left';
+    }
   }
-  
-  .user-message {
-    background-color: #007bff;
-    color: white;
-    align-self: flex-end;
-  }
-  
-  .model-message {
-    background-color: #f1f1f1;
-    color: black;
-    align-self: flex-start;
-  }
-  
-  .message-content {
-    white-space: pre-wrap;
-  }
-  </style>
-  
+};
+</script>
+
+<style scoped>
+.user-message {
+  background-color: white;
+  color: black;
+  font-size: medium;
+  align-self: flex-end;
+  border-radius: 10px;
+  max-width: 100%;
+  margin: 10px 0;
+  box-shadow: -8px 8px 8px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+}
+
+.model-message {
+  background-color: #7cb6c3;
+  color: white;
+  font-size: medium;
+  align-self: flex-start;
+  border-radius: 10px;
+  max-width: 100%;
+  margin: 10px 0;
+  box-shadow: -8px 8px 8px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+}
+
+.message-content {
+  white-space: pre-wrap;
+}
+
+/* 动效 - 用户消息从右下角弹出 */
+.slide-up-right-enter-active {
+  transition: all 0.5s ease;
+}
+
+.slide-up-right-enter {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* 动效 - 模型消息从左下角弹出 */
+.slide-up-left-enter-active {
+  transition: all 0.5s ease;
+}
+
+.slide-up-left-enter {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+</style>

@@ -174,7 +174,7 @@ export default {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: #979797; /* 灰色背景 */
+  background-color: #444444; /* 灰色背景 */
   z-index: -1; /* 使背景在所有内容的后面 */
 }
 

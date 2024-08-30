@@ -9,7 +9,7 @@
       <el-form-item label="Password" :error="passwordError">
         <el-input v-model="password" type="password" placeholder="Your password"></el-input>
       </el-form-item>
-      <el-button type="primary" @click="register">Register</el-button>
+      <el-button type="primary" @click="register" class="register-button">Register</el-button>
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p> <!-- 显示错误消息 -->
     </el-form>
     <footer>MBE@2024</footer>
@@ -202,7 +202,7 @@ footer {
 }
 
 /* 登录按钮样式 */
-.login-button {
+.register-button {
   width: 100%;
   padding: 12px;
   border-radius: 10px;
@@ -211,7 +211,7 @@ footer {
   background-color: #16b3b0;
 }
 
-.login-button:hover {
+.register-button:hover {
   background-color: #3f9f9d;
   transform: translateY(-2px);
 }

@@ -163,13 +163,15 @@ nav ul li a {
   display: block;
   padding: 15px 30px;
   background-color: #666666;
+  border-width: 3px;
+  border-style: groove;
   color: white;
   text-decoration: none;
   border-radius: 20px;
   font-size: 18px;
   text-align: center;
   width: 150px; /* 设置按钮的固定宽度 */
-  box-shadow: -10px 8px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: -10px 8px 10px rgba(0, 0, 0, 0.3);
   transition: background-color 0.3s ease, box-shadow 0.3s ease; /* 添加背景色和阴影的过渡 */
 }
 

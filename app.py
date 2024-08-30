@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import pickle
 import psycopg2
+import psycopg2.extras
 from psycopg2.extras import RealDictCursor
 from flask_cors import CORS
 
@@ -10,13 +11,11 @@ app = Flask(__name__, static_folder='static')
 
 app.config['JWT_SECRET_KEY'] = 'stevebrokeadirtblock'
 jwt = JWTManager(app)
-CORS(app)  # 将 CORS 设置移到 app.run() 之前
+CORS(app)
 
-# 模型 API 设置
 OLLAMA_HOST = "http://localhost:11434"
 LLM_MODEL = "lgkt/llama3-chinese-alpaca:latest"
 
-# 数据库连接函数
 def get_db_connection():
     try:
         conn = psycopg2.connect(
@@ -31,21 +30,18 @@ def get_db_connection():
         print(f"数据库连接失败: {e}")
         return None
 
-# 获取用户信息
 def get_user(username):
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
             return cursor.fetchone()
 
-# 创建用户
 def create_user(username, password, role='user'):
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute('INSERT INTO users (username, password, role) VALUES (%s, %s, %s)', (username, password, role))
             conn.commit()
 
-# JWT 中间件，用于管理员权限验证
 def admin_required(fn):
     @jwt_required()
     def wrapper(*args, **kwargs):
@@ -56,7 +52,6 @@ def admin_required(fn):
     wrapper.__name__ = fn.__name__
     return wrapper
 
-# 登录路由
 @app.route('/login', methods=['POST'])
 def login():
     username = request.json.get('username')
@@ -69,7 +64,6 @@ def login():
     else:
         return jsonify({"msg": "Bad username or password"}), 401
 
-# 注册路由
 @app.route('/register', methods=['POST'])
 def register():
     username = request.json.get('username')
@@ -88,7 +82,6 @@ def register():
 
     return jsonify({"msg": "User created", "role": role}), 201
 
-# 获取所有用户
 @app.route('/users', methods=['GET'])
 @jwt_required()
 def get_users():
@@ -99,7 +92,6 @@ def get_users():
 
     return jsonify(users)
 
-# 修改用户角色
 @app.route('/users/<int:user_id>/role', methods=['PUT'])
 @jwt_required()
 def update_user_role(user_id):
@@ -111,7 +103,6 @@ def update_user_role(user_id):
 
     return jsonify({"msg": "User role updated"})
 
-# 修改用户密码
 @app.route('/users/<int:user_id>/password', methods=['PUT'])
 @jwt_required()
 def update_user_password(user_id):
@@ -123,7 +114,6 @@ def update_user_password(user_id):
 
     return jsonify({"msg": "User password updated"})
 
-# 删除用户
 @app.route('/users/<int:user_id>', methods=['DELETE'])
 @jwt_required()
 def delete_user(user_id):
@@ -134,7 +124,6 @@ def delete_user(user_id):
 
     return jsonify({"msg": "User deleted"})
 
-# 数据管理功能仅限管理员使用
 @app.route('/knowledge_base', methods=['POST'])
 @admin_required
 def add_knowledge_base_entry():
@@ -210,7 +199,6 @@ def delete_knowledge_base_entry(entry_id):
 
     return jsonify({"msg": "Entry deleted"}), 200
 
-# 检索相关上下文
 def retrieve_relevant_information(user_message):
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
@@ -220,7 +208,6 @@ def retrieve_relevant_information(user_message):
     contexts = [row['data'] for row in rows]
     return contexts
 
-# 获取模型响应
 def get_model_response(user_message: str, stream: bool = False):
     try:
         contexts = retrieve_relevant_information(user_message)
@@ -243,7 +230,6 @@ def get_model_response(user_message: str, stream: bool = False):
     except Exception as e:
         return f"Error: {e}"
 
-# 流式传输的聊天接口
 @app.route('/stream-chat', methods=['POST'])
 @jwt_required()
 def stream_chat():
@@ -256,7 +242,6 @@ def stream_chat():
 
     return Response(generate_response(), content_type='text/event-stream')
 
-# 非流式传输的聊天接口
 @app.route('/chat', methods=['POST'])
 @jwt_required()
 def chat():
@@ -266,10 +251,18 @@ def chat():
     if 'id' not in current_user:
         return jsonify({"msg": "User ID not found"}), 400
 
+    # 确保 user_message 是 UTF-8 编码
+    user_message = user_message.encode('utf-8').decode('utf-8')
+
     model_response = get_model_response(user_message, stream=False)
+    print("User Message:", user_message)
+    print("Model Response:", model_response)
 
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
+            cursor.execute(
+                "SET client_encoding = 'UTF8';"  # 设置客户端编码
+            )
             cursor.execute(
                 'INSERT INTO history (user_id, message, response, timestamp) VALUES (%s, %s, %s, NOW())',
                 (current_user["id"], user_message, model_response["choices"][0]["message"]["content"])
@@ -278,7 +271,57 @@ def chat():
 
     return jsonify(model_response)
 
-# 静态文件处理
+@app.route('/api/chat-histories', methods=['GET'])
+@jwt_required()
+def get_chat_histories():
+    current_user = get_jwt_identity()
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            cursor.execute("SELECT id, timestamp FROM history WHERE user_id = %s ORDER BY timestamp DESC", (current_user['id'],))
+            chat_histories = cursor.fetchall()
+            return jsonify([dict(row) for row in chat_histories])
+
+@app.route('/chat-history/<int:history_id>', methods=['GET'])
+@jwt_required()
+def get_chat_history(history_id):
+    current_user = get_jwt_identity()
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            cursor.execute("SELECT message, response FROM history WHERE id = %s AND user_id = %s", (history_id, current_user['id']))
+            history = cursor.fetchall()
+            if history:
+                messages = [{'role': 'user', 'content': row['message']} if index % 2 == 0 else {'role': 'model', 'content': row['response']} for index, row in enumerate(history)]
+                return jsonify({'messages': messages})
+            else:
+                return jsonify({'error': 'History not found'}), 404
+
+@app.route('/api/chat-histories', methods=['POST'])
+@jwt_required()
+def create_chat_history():
+    current_user = get_jwt_identity()
+    data = request.json
+    messages = data.get('messages', [])
+    
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            for message in messages:
+                cursor.execute(
+                    'INSERT INTO history (user_id, message, response, timestamp) VALUES (%s, %s, %s, NOW())',
+                    (current_user["id"], message["content"] if message["role"] == "user" else None, message["content"] if message["role"] == "model" else None)
+                )
+            conn.commit()
+            return jsonify({'id': cursor.lastrowid, 'timestamp': data['timestamp']}), 201
+
+@app.route('/api/chat-histories/<int:chat_id>', methods=['DELETE'])
+@jwt_required()
+def delete_chat_history(chat_id):
+    current_user = get_jwt_identity()
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM history WHERE id = %s AND user_id = %s", (chat_id, current_user['id']))
+            conn.commit()
+            return jsonify({'msg': 'Chat deleted'}), 200
+
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
