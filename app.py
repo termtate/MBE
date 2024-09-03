@@ -1,40 +1,31 @@
-import requests
 from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import pickle
 import psycopg2
 import psycopg2.extras
-from psycopg2.extras import RealDictCursor
 from flask_cors import CORS
+from config import Config
+from functools import wraps
+from Module_LLM import get_model_response
+from utils import get_db_connection
 
 app = Flask(__name__, static_folder='static')
 
-app.config['JWT_SECRET_KEY'] = 'stevebrokeadirtblock'
+app.config.from_object(Config)
+
+
+
 jwt = JWTManager(app)
 CORS(app)
 
-OLLAMA_HOST = "http://localhost:11434"
-LLM_MODEL = "lgkt/llama3-chinese-alpaca:latest"
-
-def get_db_connection():
-    try:
-        conn = psycopg2.connect(
-            host="localhost",
-            database="mbe_db",
-            user="postgres",
-            password="12345",
-            cursor_factory=RealDictCursor
-        )
-        return conn
-    except Exception as e:
-        print(f"数据库连接失败: {e}")
-        return None
-
 def get_user(username):
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
-            return cursor.fetchone()
+    conn = get_db_connection()
+    if conn is None:
+        return None  
+    with conn.cursor() as cursor:
+        cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
+        return cursor.fetchone()
+
 
 def create_user(username, password, role='user'):
     with get_db_connection() as conn:
@@ -43,14 +34,15 @@ def create_user(username, password, role='user'):
             conn.commit()
 
 def admin_required(fn):
+    @wraps(fn)
     @jwt_required()
     def wrapper(*args, **kwargs):
         current_user = get_jwt_identity()
         if current_user["role"] != "admin":
             return jsonify({"msg": "Admins only!"}), 403
         return fn(*args, **kwargs)
-    wrapper.__name__ = fn.__name__
     return wrapper
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -199,37 +191,6 @@ def delete_knowledge_base_entry(entry_id):
 
     return jsonify({"msg": "Entry deleted"}), 200
 
-def retrieve_relevant_information(user_message):
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT data FROM knowledge_base WHERE data ILIKE %s LIMIT 5", ('%' + user_message + '%',))
-            rows = cursor.fetchall()
-
-    contexts = [row['data'] for row in rows]
-    return contexts
-
-def get_model_response(user_message: str, stream: bool = False):
-    try:
-        contexts = retrieve_relevant_information(user_message)
-        combined_message = (
-            "你需要根据你学习到的内容回答的问题：" "\n" + user_message +
-            "\n\n" + "后方的内容是你学习到的知识，请基于这些信息回答用户问题:" + "\n".join(contexts)
-        )
-
-        response = requests.post(
-            url=f"{OLLAMA_HOST}/v1/chat/completions",
-            json={"model": LLM_MODEL, "messages": [{"role": "user", "content": combined_message}], "stream": stream},
-            stream=stream
-        )
-        response.raise_for_status()
-
-        if stream:
-            return response.iter_lines()
-        else:
-            return response.json()
-    except Exception as e:
-        return f"Error: {e}"
-
 @app.route('/stream-chat', methods=['POST'])
 @jwt_required()
 def stream_chat():
@@ -238,7 +199,10 @@ def stream_chat():
     def generate_response():
         for line in get_model_response(user_message, stream=True):
             if line:
-                yield f"data: {line.decode('utf-8')}\n\n"
+                try:
+                    yield f"data: {line.decode('utf-8')}\n\n"
+                except UnicodeDecodeError:
+                    yield f"data: [Error decoding response]\n\n"
 
     return Response(generate_response(), content_type='text/event-stream')
 
@@ -254,9 +218,15 @@ def chat():
     # 确保 user_message 是 UTF-8 编码
     user_message = user_message.encode('utf-8').decode('utf-8')
 
-    model_response = get_model_response(user_message, stream=False)
+    # 使用 get_model_response 生成响应
+    model_response = get_model_response(user_message)
+    if model_response is None:
+        return jsonify({"msg": "Error generating response from model"}), 500
+
+    response_text = model_response.get("choices", [{}])[0].get("message", {}).get("content", "")
+
     print("User Message:", user_message)
-    print("Model Response:", model_response)
+    print("Model Response:", response_text)
 
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
@@ -265,11 +235,11 @@ def chat():
             )
             cursor.execute(
                 'INSERT INTO history (user_id, message, response, timestamp) VALUES (%s, %s, %s, NOW())',
-                (current_user["id"], user_message, model_response["choices"][0]["message"]["content"])
+                (current_user["id"], user_message, response_text)
             )
             conn.commit()
 
-    return jsonify(model_response)
+    return jsonify({"response": response_text})
 
 @app.route('/api/chat-histories', methods=['GET'])
 @jwt_required()
@@ -301,16 +271,35 @@ def create_chat_history():
     current_user = get_jwt_identity()
     data = request.json
     messages = data.get('messages', [])
-    
+
+    if not messages:
+        return jsonify({"error": "No messages provided"}), 400
+
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
+            # 使用 RETURNING id 获取插入记录的 ID
             for message in messages:
+                user_message = message["content"] if message["role"] == "user" else ""
+                model_response = message["content"] if message["role"] == "model" else ""
+
                 cursor.execute(
-                    'INSERT INTO history (user_id, message, response, timestamp) VALUES (%s, %s, %s, NOW())',
-                    (current_user["id"], message["content"] if message["role"] == "user" else None, message["content"] if message["role"] == "model" else None)
+                    '''
+                    INSERT INTO history (user_id, message, response, timestamp)
+                    VALUES (%s, %s, %s, NOW())
+                    RETURNING id
+                    ''',
+                    (
+                        current_user["id"],
+                        user_message if user_message else model_response,
+                        model_response if user_message == "" else None
+                    )
                 )
+                last_id = cursor.fetchone()[0]
+            
             conn.commit()
-            return jsonify({'id': cursor.lastrowid, 'timestamp': data['timestamp']}), 201
+            return jsonify({'id': last_id, 'timestamp': data['timestamp']}), 201
+
+
 
 @app.route('/api/chat-histories/<int:chat_id>', methods=['DELETE'])
 @jwt_required()

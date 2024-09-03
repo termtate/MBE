@@ -2,13 +2,14 @@
   <div class="chat-history">
     <h3>Chat History</h3>
 
+    <!-- Chat history list -->
     <el-scrollbar class="history-list" v-if="chatHistories.length">
       <el-menu :default-active="activeIndex" class="el-menu-vertical-demo">
         <transition-group name="fade">
           <el-menu-item
             v-for="(history, index) in chatHistories"
             :key="history.id"
-            @click="loadHistory(history.id)"
+            @click="handleHistoryClick(history.id)"
             :class="{ active: history.id === activeIndex }"
           >
             <span>Chat {{ index + 1 }} - {{ history.timestamp }}</span>
@@ -22,10 +23,11 @@
         </transition-group>
       </el-menu>
     </el-scrollbar>
-    
+
     <!-- No Chat History Message -->
     <el-empty v-else description="No Chat History" />
 
+    <!-- Chat selection for deletion -->
     <el-checkbox-group v-model="selectedIds" class="checkbox-group" v-if="chatHistories.length">
       <el-checkbox
         v-for="history in chatHistories"
@@ -36,6 +38,7 @@
       </el-checkbox>
     </el-checkbox-group>
 
+    <!-- Delete selected chats button -->
     <el-button 
       type="danger" 
       icon="el-icon-delete" 
@@ -47,6 +50,7 @@
       Delete Selected
     </el-button>
 
+    <!-- New chat button -->
     <el-button 
       type="primary" 
       @click="newChat"
@@ -72,7 +76,7 @@ export default {
     };
   },
   methods: {
-    loadHistory(historyId) {
+    handleHistoryClick(historyId) {
       this.activeIndex = historyId; // 更新当前激活的聊天记录ID
       this.$emit('load-history', historyId); // 触发加载历史记录的事件
     },
@@ -102,7 +106,7 @@ export default {
   background-color: #444444;
   border-bottom: 1px solid #ddd;
   height: 100%;
-  color:white;
+  color: white;
 }
 
 .history-list {
