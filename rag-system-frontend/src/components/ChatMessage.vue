@@ -32,7 +32,7 @@ export default {
 .user-message {
   background-color: white;
   color: black;
-  font-size: medium;
+  font-size: 15px;
   align-self: flex-end;
   border-radius: 10px;
   max-width: 100%;
@@ -44,7 +44,7 @@ export default {
 .model-message {
   background-color: #7cb6c3;
   color: rgb(0, 0, 0);
-  font-size: medium;
+  font-size: 15px;
   align-self: flex-start;
   border-radius: 10px;
   max-width: 100%;

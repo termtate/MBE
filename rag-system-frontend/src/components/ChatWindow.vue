@@ -1,4 +1,5 @@
 <template>
+  <div class="page-background"></div>
   <el-container class="chat-container">
     <el-header class="header">
       <el-button 
@@ -11,7 +12,7 @@
       </el-button>
     </el-header>
 
-    <transition name="slide-left">
+    <transition name="fade-slide">
       <el-aside 
         v-if="showHistory" 
         class="history-container"
@@ -61,7 +62,6 @@
     </el-main>
   </el-container>
 </template>
-
 <script>
 import ChatHistory from './ChatHistory.vue';
 import Message from './ChatMessage.vue';
@@ -84,63 +84,54 @@ export default {
   },
   methods: {
     async sendMessage() {
-          if (this.userMessage.trim() === '' || this.loading) return;
+      if (this.userMessage.trim() === '' || this.loading) return;
 
-          // 用户消息推送到 messages 数组
-          this.messages.push({ role: 'user', content: this.userMessage });
-          const messageToSend = this.userMessage;
-          this.userMessage = '';
-          this.loading = true;
+      this.messages.push({ role: 'user', content: this.userMessage });
+      const messageToSend = this.userMessage;
+      this.userMessage = '';
+      this.loading = true;
 
-          try {
-            const token = localStorage.getItem('token');
-            const response = await axios.post('/chat', 
-              { message: messageToSend }, 
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`
-                }
-              }
-            );
-
-            // 处理响应并显示模型回复
-            this.processResponse(response.data);
-            console.log("API response data:", response.data);
-          } catch (error) {
-            console.log(error)
-            this.handleError(error, 'Error sending message');
-          } finally {
-            this.loading = false;
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.post('/chat', 
+          { message: messageToSend }, 
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
           }
-        },
+        );
+        this.processResponse(response.data);
+      } catch (error) {
+        this.handleError(error, 'Error sending message');
+      } finally {
+        this.loading = false;
+      }
+    },
 
-        processResponse(responseData) {
-              console.log("Processing response:", responseData);
-              if (responseData?.response) {
-                console.log("Adding assistant message:", responseData.response);
-                this.addMessage('assistant', responseData.response);
-              } else if (responseData?.choices?.[0]?.message) {
-                const message = responseData.choices[0].message;
-                this.addMessage(message.role || 'assistant', message.content);
-                console.log("Adding assistant message:", message.content);
-              } else {
-                ElMessage.error('Unexpected response structure');
-                console.error('Unexpected response structure:', responseData);
-              }
-            },
+    processResponse(responseData) {
+      if (responseData?.response) {
+        this.addMessage('assistant', responseData.response);
+      } else if (responseData?.choices?.[0]?.message) {
+        const message = responseData.choices[0].message;
+        this.addMessage(message.role || 'assistant', message.content);
+      } else {
+        ElMessage.error('Unexpected response structure');
+      }
+    },
 
+    addMessage(role, content) {
+        this.messages.push({ role, content });
 
-        addMessage(role, content) {
-          this.messages.push({ role, content });
-          console.log("Messages array:", this.messages);
-          this.$nextTick(() => {
-            // 滚动到底部以显示最新消息
-            const chatMessages = this.$el.querySelector('.chat-messages .el-scrollbar__wrap');
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-          });
-          console.log(`${role} message added:`, content);
-        },
-
+        // this.$nextTick(() => {
+        //   const chatMessages = this.$el.querySelector('.chat-messages .el-scrollbar__wrap');
+        //   if (chatMessages) {
+        //     chatMessages.scrollTop = chatMessages.scrollHeight; // 滚动到最底部
+        //   } else {
+        //     console.error('chatMessages element not found');
+        //   }
+        // });
+      },
 
     async loadChatHistories() {
       try {
@@ -148,6 +139,19 @@ export default {
         this.chatHistories = response.data;
       } catch (error) {
         this.handleError(error, 'Error loading chat histories');
+      }
+    },
+
+    toggleHistory() {
+      this.showHistory = !this.showHistory;
+      console.log('Show History:', this.showHistory);
+    },
+    closeHistory() {
+      this.showHistory = false;
+    },
+    closeHistoryIfOpen() {
+      if (this.showHistory) {
+        this.showHistory = false;
       }
     },
 
@@ -213,9 +217,16 @@ export default {
   }
 };
 </script>
-
 <style scoped>
-/* 样式与之前相同 */
+.page-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #444444; /* 灰色背景 */
+  z-index: -1; /* 使背景在所有内容的后面 */
+}
 .chat-container {
   display: flex;
   height: 100vh;
@@ -227,6 +238,8 @@ export default {
   display: flex;
   justify-content: flex-end;
   padding: 10px;
+  z-index: 1000; 
+  background-color: #444444;
 }
 
 .history-button, .send-button {
@@ -244,7 +257,6 @@ export default {
   background-color: #ffffff;
   border-right: 1px solid #ddd;
   z-index: 1000;
-  transition: transform 0.3s ease;
 }
 
 .chat-main {
@@ -253,7 +265,7 @@ export default {
   flex: 1;
   padding: 10px;
   overflow: hidden;
-  background-color: #ffffff;
+  background-color: #444444;
 }
 
 .chat-messages {
@@ -293,13 +305,14 @@ export default {
   border-radius: 5px;
 }
 
-.slide-left-enter-active, .slide-left-leave-active {
-  transition: all 0.3s ease;
+/* 优化后的动画效果 */
+.fade-slide-enter-active, .fade-slide-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.slide-left-enter, .slide-left-leave-to {
-  transform: translateX(-100%);
+.fade-slide-enter, .fade-slide-leave-to {
   opacity: 0;
+  transform: translateX(-30px);
 }
 
 .message-transition-enter-active, .message-transition-leave-active {

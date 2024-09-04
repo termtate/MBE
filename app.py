@@ -3,6 +3,8 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 import pickle
 import psycopg2
 import psycopg2.extras
+import json
+import os
 from flask_cors import CORS
 from config import Config
 from functools import wraps
@@ -239,7 +241,7 @@ def chat():
             )
             conn.commit()
 
-    return jsonify({"choices":{"message":{"role":"assitent","content": response_text}}})
+    return jsonify({"response":response_text})
 
 @app.route('/api/chat-histories', methods=['GET'])
 @jwt_required()
@@ -265,6 +267,79 @@ def get_chat_history(history_id):
             else:
                 return jsonify({'error': 'History not found'}), 404
 
+# @app.route('/api/chat-histories', methods=['POST'])
+# @jwt_required()
+# def create_chat_history():
+#     current_user = get_jwt_identity()
+#     data = request.json
+#     messages = data.get('messages', [])
+
+#     if not messages:
+#         return jsonify({"error": "No messages provided"}), 400
+
+#     # with get_db_connection() as conn:
+#     #     try:
+#     #         with conn.cursor() as cursor:
+#     #             last_id = None
+#     #             for message in messages:
+#     #                 user_message = message["content"] if message["role"] == "user" else None
+#     #                 model_response = message["content"] if message["role"] in ["model", "assistant"] else None
+
+#     #                 cursor.execute(
+#     #                     '''
+#     #                     INSERT INTO history (user_id, message, response, timestamp)
+#     #                     VALUES (%s, %s, %s, NOW())
+#     #                     RETURNING id
+#     #                     ''',
+#     #                     (
+#     #                         current_user["id"],
+#     #                         user_message,
+#     #                         model_response
+#     #                     )
+#     #                 )
+
+#     #                 result = cursor.fetchone()
+#     #                 print(f"Insert result: {result}")
+
+#     #                 if result is None:
+#     #                     return jsonify({"error": "Insert failed, no ID returned"}), 500
+
+#     #                 last_id = result[0]
+                
+#     #             conn.commit()
+
+#     #             # 返回最后插入的记录ID及时间戳
+#     #             return jsonify({'id': last_id, 'timestamp': data.get('timestamp', None)}), 201
+#     #     except Exception as e:
+#     #         conn.rollback()
+#     #         print(f"Error: {e}")
+#     #         return jsonify({"error": "Database operation failed"}), 500
+#     return jsonify({'message': 'Chat history received', 'timestamp': data.get('timestamp', None)}), 201
+
+# @app.route('/api/chat-histories/<int:chat_id>', methods=['DELETE'])
+# @jwt_required()
+# def delete_chat_history(chat_id):
+#     current_user = get_jwt_identity()
+#     with get_db_connection() as conn:
+#         with conn.cursor() as cursor:
+#             cursor.execute("DELETE FROM history WHERE id = %s AND user_id = %s", (chat_id, current_user['id']))
+#             conn.commit()
+#             return jsonify({'msg': 'Chat deleted'}), 200
+
+HISTORY_FILE_PATH = 'chat_histories.json'
+
+# 加载历史记录
+def load_histories():
+    if os.path.exists(HISTORY_FILE_PATH):
+        with open(HISTORY_FILE_PATH, 'r') as file:
+            return json.load(file)
+    return {}
+
+# 保存历史记录
+def save_histories(histories):
+    with open(HISTORY_FILE_PATH, 'w') as file:
+        json.dump(histories, file, indent=4)
+
 @app.route('/api/chat-histories', methods=['POST'])
 @jwt_required()
 def create_chat_history():
@@ -275,41 +350,51 @@ def create_chat_history():
     if not messages:
         return jsonify({"error": "No messages provided"}), 400
 
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            # 使用 RETURNING id 获取插入记录的 ID
-            for message in messages:
-                user_message = message["content"] if message["role"] == "user" else ""
-                model_response = message["content"] if message["role"] == "model" else ""
+    # 加载现有的历史记录
+    histories = load_histories()
 
-                cursor.execute(
-                    '''
-                    INSERT INTO history (user_id, message, response, timestamp)
-                    VALUES (%s, %s, %s, NOW())
-                    RETURNING id
-                    ''',
-                    (
-                        current_user["id"],
-                        user_message if user_message else model_response,
-                        model_response if user_message == "" else None
-                    )
-                )
-                last_id = cursor.fetchone()[0]
-            
-            conn.commit()
-            return jsonify({'id': last_id, 'timestamp': data['timestamp']}), 201
+    # 使用当前用户的 ID 作为唯一标识符
+    user_id = str(current_user["id"])
+    
+    if user_id not in histories:
+        histories[user_id] = []
 
+    # 新的聊天记录
+    new_chat = {
+        'id': len(histories[user_id]) + 1,
+        'timestamp': data.get('timestamp', None),
+        'messages': messages
+    }
 
+    # 将新的聊天记录添加到该用户的历史记录中
+    histories[user_id].append(new_chat)
+
+    # 保存历史记录
+    save_histories(histories)
+
+    return jsonify({'id': new_chat['id'], 'timestamp': new_chat['timestamp']}), 201
 
 @app.route('/api/chat-histories/<int:chat_id>', methods=['DELETE'])
 @jwt_required()
 def delete_chat_history(chat_id):
     current_user = get_jwt_identity()
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("DELETE FROM history WHERE id = %s AND user_id = %s", (chat_id, current_user['id']))
-            conn.commit()
-            return jsonify({'msg': 'Chat deleted'}), 200
+
+    # 加载现有的历史记录
+    histories = load_histories()
+
+    user_id = str(current_user["id"])
+
+    if user_id not in histories:
+        return jsonify({"error": "No chat history found"}), 404
+
+    # 查找并删除对应的聊天记录
+    histories[user_id] = [chat for chat in histories[user_id] if chat['id'] != chat_id]
+
+    # 保存更新后的历史记录
+    save_histories(histories)
+
+    return jsonify({'msg': 'Chat deleted'}), 200
+
 
 @app.route('/')
 def index():
