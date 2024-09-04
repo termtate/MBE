@@ -16,14 +16,17 @@ export default {
   },
   computed: {
     messageClass() {
+      // 根据消息的角色动态设置样式类
       return this.message.role === 'user' ? 'user-message' : 'model-message';
     },
     transitionName() {
+      // 根据消息的角色动态设置过渡动画
       return this.message.role === 'user' ? 'slide-up-right' : 'slide-up-left';
     }
   }
 };
 </script>
+
 
 <style scoped>
 .user-message {
@@ -40,7 +43,7 @@ export default {
 
 .model-message {
   background-color: #7cb6c3;
-  color: white;
+  color: rgb(0, 0, 0);
   font-size: medium;
   align-self: flex-start;
   border-radius: 10px;
@@ -51,12 +54,12 @@ export default {
 }
 
 .message-content {
-  white-space: pre-wrap;
+  white-space: pre-wrap; /* 保留消息中的换行和空白 */
 }
 
-/* 动效 - 用户消息从右下角弹出 */
+/* 用户消息从右侧滑入 */
 .slide-up-right-enter-active {
-  transition: all 0.5s ease;
+  transition: all 1s ease;
 }
 
 .slide-up-right-enter {
@@ -64,9 +67,9 @@ export default {
   opacity: 0;
 }
 
-/* 动效 - 模型消息从左下角弹出 */
+/* 模型消息从左侧滑入 */
 .slide-up-left-enter-active {
-  transition: all 0.5s ease;
+  transition: all 1s ease;
 }
 
 .slide-up-left-enter {
