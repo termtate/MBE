@@ -239,7 +239,7 @@ def chat():
             )
             conn.commit()
 
-    return jsonify({"response": response_text})
+    return jsonify({"choices":{"message":{"role":"assitent","content": response_text}}})
 
 @app.route('/api/chat-histories', methods=['GET'])
 @jwt_required()
