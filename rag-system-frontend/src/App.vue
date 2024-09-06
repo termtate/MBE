@@ -1,12 +1,15 @@
 <template>
   <div id="app">
     <!-- 热点区域，用于检测鼠标进入/离开 -->
-    <div class="hotspot"
-         @mouseenter="showNav"
-         @mouseleave="delayedHideNav"></div>
+    <div class="hotspot" @mouseenter="showNav" @mouseleave="delayedHideNav"></div>
 
     <!-- 登录后的导航栏 -->
-    <nav v-if="isLoggedIn" @mouseenter="cancelHideNav" @mouseleave="delayedHideNav" :class="{ visible: navVisible }">
+    <nav
+      v-if="isLoggedIn"
+      @mouseenter="cancelHideNav"
+      @mouseleave="delayedHideNav"
+      :class="{ visible: navVisible }"
+    >
       <ul>
         <!-- 如果是管理员，显示“用户管理”、“数据管理”和“聊天” -->
         <li v-if="isAdmin"><router-link to="/user-management">User Management</router-link></li>
@@ -16,9 +19,14 @@
         <li><a href="#" @click="logout">Logout</a></li>
       </ul>
     </nav>
-    
+
     <!-- 未登录时显示“注册”和“登录” -->
-    <nav v-else @mouseenter="cancelHideNav" @mouseleave="delayedHideNav" :class="{ visible: navVisible }">
+    <nav
+      v-else
+      @mouseenter="cancelHideNav"
+      @mouseleave="delayedHideNav"
+      :class="{ visible: navVisible }"
+    >
       <ul>
         <li><router-link to="/register">Register</router-link></li>
         <li><router-link to="/login">Login</router-link></li>
@@ -37,74 +45,79 @@ export default {
       navVisible: false, // 控制导航栏的显示与隐藏
       isLoggedIn: !!localStorage.getItem('token'), // 初始登录状态
       isAdmin: false, // 管理员状态
-      hideTimeout: null, // 延迟隐藏的定时器
-    };
+      hideTimeout: null // 延迟隐藏的定时器
+    }
   },
   watch: {
     // 监控路由变化并更新登录状态
     $route() {
-      this.updateAuthStatus();
+      this.updateAuthStatus()
     }
   },
   methods: {
     showNav() {
-      this.navVisible = true;
+      this.navVisible = true
       // 取消任何隐藏的定时器
       if (this.hideTimeout) {
-        clearTimeout(this.hideTimeout);
-        this.hideTimeout = null;
+        clearTimeout(this.hideTimeout)
+        this.hideTimeout = null
       }
     },
     delayedHideNav() {
       // 延迟隐藏导航栏，确保用户有足够时间将鼠标移到导航栏上
       this.hideTimeout = setTimeout(() => {
-        this.navVisible = false;
-      }, 300); // 300ms延迟
+        this.navVisible = false
+      }, 300) // 300ms延迟
     },
     cancelHideNav() {
       // 当鼠标进入导航栏时，取消隐藏的定时器
       if (this.hideTimeout) {
-        clearTimeout(this.hideTimeout);
-        this.hideTimeout = null;
+        clearTimeout(this.hideTimeout)
+        this.hideTimeout = null
       }
     },
     updateAuthStatus() {
-      const token = localStorage.getItem('token');
-      this.isLoggedIn = !!token;
+      const token = localStorage.getItem('token')
+      this.isLoggedIn = !!token
 
       if (this.isLoggedIn) {
         try {
           // 解析 JWT Token
-          const base64Url = token.split('.')[1];
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-          }).join(''));
+          const base64Url = token.split('.')[1]
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map(function (c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+              })
+              .join('')
+          )
 
-          const user = JSON.parse(jsonPayload);
+          const user = JSON.parse(jsonPayload)
 
           // 判断用户角色是否为管理员
-          this.isAdmin = user.sub && user.sub.role === 'admin';
+          this.isAdmin = user.sub && user.sub.role === 'admin'
         } catch (error) {
-          console.error('Error parsing JWT:', error);
-          this.isAdmin = false;
+          console.error('Error parsing JWT:', error)
+          this.isAdmin = false
         }
       } else {
-        this.isAdmin = false;
+        this.isAdmin = false
       }
     },
     logout() {
       // 移除 token 并重定向到登录页面
-      localStorage.removeItem('token');
-      this.isLoggedIn = false;
-      this.isAdmin = false;
-      this.$router.push('/login');
+      localStorage.removeItem('token')
+      this.isLoggedIn = false
+      this.isAdmin = false
+      this.$router.push('/login')
     }
   },
   mounted() {
-    this.updateAuthStatus(); // 初始化时检查登录状态
+    this.updateAuthStatus() // 初始化时检查登录状态
   }
-};
+}
 </script>
 
 <style scoped>
@@ -126,7 +139,9 @@ nav {
   left: 20px;
   transform: translateY(-50%);
   opacity: 0;
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
   z-index: 1000;
   pointer-events: none; /* 默认情况下，导航栏不接受鼠标事件 */
 }
@@ -152,7 +167,9 @@ nav ul li {
   display: block;
   cursor: pointer;
   transform: scale(1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease; /* 添加缩放和阴影效果的过渡 */
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease; /* 添加缩放和阴影效果的过渡 */
 }
 
 nav ul li:hover {
@@ -172,7 +189,9 @@ nav ul li a {
   text-align: center;
   width: 150px; /* 设置按钮的固定宽度 */
   box-shadow: -10px 8px 10px rgba(0, 0, 0, 0.3);
-  transition: background-color 0.3s ease, box-shadow 0.3s ease; /* 添加背景色和阴影的过渡 */
+  transition:
+    background-color 0.3s ease,
+    box-shadow 0.3s ease; /* 添加背景色和阴影的过渡 */
 }
 
 /* 添加按钮的悬停效果 */
