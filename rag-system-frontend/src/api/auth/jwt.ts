@@ -1,5 +1,6 @@
 class Token {
   private _value: string | null = null
+
   get value() {
     return this._value
   }
